@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<!--
+================================================================================
+PORTFOLIO INTEGRATION BRIEF — for the Claude Code session receiving this file
+================================================================================
+
+WHAT THIS IS
+  A finished project case study. It should become ONE entry in the portfolio's
+  "Projects" section: a card/teaser in the projects list, linking through to a
+  detail page carrying the full report below.
+
+THREE THINGS YOU MUST DO
+  1. RESTYLE IT. Every colour, font and measure lives in the ":root" token block
+     at the top of <style>. Replace those tokens with the portfolio's own design
+     tokens, or drop this stylesheet entirely and re-implement using the
+     portfolio's existing components. The markup is plain semantic HTML with
+     stable class names — it is meant to be re-skinned, not preserved.
+
+  2. FILL THE GITHUB LINK. Search for:  data-placeholder="github-repo-url"
+     There are TWO occurrences (header and footer). Both have href="" and are
+     intentionally empty — the repo is not published yet. Either insert the URL
+     once it exists, or omit the link entirely if it still doesn't. Do NOT
+     invent a plausible-looking URL.
+
+  3. MOVE THE ASSETS. Four PNGs sit in ./assets/ next to this file. Copy them
+     into the portfolio's static/public directory and update the four image
+     src paths accordingly. They are plots, not decoration — keep them.
+     (The odds-ratio forest plot in #results is NOT an image — it is a native
+     HTML/CSS table, so it inherits your tokens automatically. Keep it as
+     markup rather than swapping in a screenshot.)
+
+PROJECT CARD METADATA (for the projects-list teaser)
+  title:    The Readmission Threshold
+  subtitle: What explains the variation Medicare can't?
+  blurb:    A logistic-regression analysis of Medicare's hospital readmissions
+            penalty, finding that its strongest apparent hospital effect is an
+            artifact of CMS's own risk model rather than a fact about hospitals.
+  tags:     Health policy · Statistical inference · Python · Public data
+  year:     2026
+  role:     Solo — analysis, methodology, write-up
+
+CONTENT INVENTORY (section id → purpose)
+  #summary     recommendation-free thesis + headline stats  (KEEP — best teaser source)
+  #question    framing: why the obvious question is the wrong one
+  #method      four method choices, as a 2x2 panel grid
+  #results     forest plot of odds ratios — native HTML/CSS table, no image
+  #findings    six numbered findings with status chips  (THE CORE — do not cut)
+  #shrinkage   the headline finding + the aggregation-trap callout
+  #patterns    raw descriptive figure
+  #performance model performance + threshold sweep
+  #ceiling     "why isn't accuracy higher" — pre-empts the obvious objection
+  #limits      what the analysis cannot support
+
+IF YOU MUST SHORTEN
+  Cut in this order: #patterns, #performance, #method, #ceiling.
+  Never cut #findings or #shrinkage — the shrinkage artifact is the whole point
+  of the project and the only genuinely novel result in it.
+
+ACCURACY NOTE
+  Every figure in this document is generated from the model fit, not typed by
+  hand. Do not "round for readability" or restate numbers from memory when
+  porting — copy them exactly.
+================================================================================
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Readmission Threshold</title>
+<meta name="description" content="A logistic-regression analysis of Medicare's hospital readmissions penalty, finding that its strongest apparent hospital effect is an artifact of CMS's own risk model.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* ============================================================================
+   DESIGN TOKENS — REPLACE THIS BLOCK WITH THE PORTFOLIO'S OWN TOKENS.
+   Nothing below this block hard-codes a colour or a typeface.
+   ============================================================================ */
+:root {
+  --ground:#F2F4F6; --surface:#FFFFFF; --surface-sub:#E9EDF1;
+  --ink:#16202B; --ink-soft:#5A6874; --ink-faint:#8B98A4;
+  --rule:#D5DBE1; --rule-strong:#B6C0C9;
+  --accent:#1B6560; --accent-soft:#DCEAE8;
+  --above:#A8323F; --above-soft:#F6E3E5; --below:#1B6560;
+  --font-display:"Newsreader",Georgia,serif;
+  --font-body:"Public Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --measure:68ch; --wide:1120px; --radius:3px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:#10161C; --surface:#172029; --surface-sub:#1E2932;
+    --ink:#E4EAEF; --ink-soft:#9FADB9; --ink-faint:#6D7C88;
+    --rule:#2A3742; --rule-strong:#3C4B57;
+    --accent:#5FBDB4; --accent-soft:#17322F;
+    --above:#E4808A; --above-soft:#332023; --below:#5FBDB4;
+  }
+}
+:root[data-theme="dark"] {
+  --ground:#10161C; --surface:#172029; --surface-sub:#1E2932;
+  --ink:#E4EAEF; --ink-soft:#9FADB9; --ink-faint:#6D7C88;
+  --rule:#2A3742; --rule-strong:#3C4B57;
+  --accent:#5FBDB4; --accent-soft:#17322F;
+  --above:#E4808A; --above-soft:#332023; --below:#5FBDB4;
+}
+/* ==================== end tokens ==================== */
+
+*,*::before,*::after { box-sizing:border-box; }
+body { margin:0; background:var(--ground); color:var(--ink);
+  font-family:var(--font-body); font-size:17px; line-height:1.65;
+  -webkit-font-smoothing:antialiased; }
+.wrap { max-width:var(--wide); margin:0 auto; padding:0 clamp(1.1rem,4vw,2.5rem); }
+.col { max-width:var(--measure); }
+
+header.top { border-bottom:1px solid var(--rule); background:var(--surface);
+  padding:clamp(2.75rem,7vw,5rem) 0 clamp(1.75rem,4vw,2.75rem); }
+.eyebrow { font-family:var(--font-mono); font-size:.72rem; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--accent); margin:0 0 1.1rem; }
+h1 { font-family:var(--font-display); font-weight:500;
+  font-size:clamp(2.1rem,5.6vw,3.5rem); line-height:1.08; letter-spacing:-.015em;
+  margin:0 0 1.1rem; text-wrap:balance; max-width:20ch; }
+.standfirst { font-family:var(--font-display); font-size:clamp(1.05rem,2.3vw,1.3rem);
+  line-height:1.5; color:var(--ink-soft); margin:0; max-width:58ch; }
+.standfirst em { color:var(--ink); font-style:italic; }
+.meta { display:flex; flex-wrap:wrap; gap:.55rem 1.6rem; margin-top:2rem;
+  padding-top:1.4rem; border-top:1px solid var(--rule);
+  font-family:var(--font-mono); font-size:.76rem; color:var(--ink-faint); }
+.meta b { color:var(--ink-soft); font-weight:500; }
+.repolink { display:inline-flex; align-items:center; gap:.4rem;
+  font-family:var(--font-mono); font-size:.78rem; color:var(--accent);
+  text-decoration:none; border:1px solid var(--rule-strong);
+  padding:.4rem .8rem; border-radius:var(--radius); margin-top:1.5rem; }
+.repolink:hover { border-color:var(--accent); }
+.repolink[href=""] { opacity:.55; cursor:not-allowed; }
+.repolink[href=""]::after { content:" (link pending)"; color:var(--ink-faint); }
+
+.stats { display:grid; gap:1px; grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  background:var(--rule); border-block:1px solid var(--rule); }
+.stat { background:var(--surface); padding:1.4rem clamp(1.1rem,3vw,1.8rem); }
+.stat .v { font-family:var(--font-mono); font-size:clamp(1.5rem,3.6vw,2rem);
+  font-weight:500; letter-spacing:-.02em; display:block; line-height:1.1;
+  font-variant-numeric:tabular-nums; }
+.stat .k { font-size:.78rem; color:var(--ink-soft); display:block;
+  margin-top:.45rem; line-height:1.35; }
+
+main { padding-bottom:5rem; }
+section { padding-top:clamp(2.75rem,6vw,4.25rem); }
+h2 { font-family:var(--font-display); font-weight:500;
+  font-size:clamp(1.5rem,3.3vw,2.05rem); line-height:1.18; letter-spacing:-.01em;
+  margin:0 0 1.2rem; text-wrap:balance; }
+h3 { font-family:var(--font-body); font-weight:600; font-size:1.02rem;
+  margin:2.1rem 0 .6rem; }
+p { margin:0 0 1.05rem; }
+a { color:var(--accent); }
+code { font-family:var(--font-mono); font-size:.87em; background:var(--surface-sub);
+  padding:.1em .38em; border-radius:var(--radius); }
+.lede { font-size:1.06rem; color:var(--ink-soft); }
+blockquote.q { margin:1.6rem 0; padding:1.1rem 0 1.1rem 1.5rem;
+  border-left:3px solid var(--accent); font-family:var(--font-display);
+  font-size:1.18rem; line-height:1.45; font-style:italic; color:var(--ink); }
+
+.findings { display:grid; gap:1px; background:var(--rule);
+  border:1px solid var(--rule); margin-top:1.8rem; }
+.finding { background:var(--surface); padding:clamp(1.3rem,3.2vw,1.9rem); }
+.fhead { display:flex; align-items:baseline; gap:.85rem; flex-wrap:wrap;
+  margin-bottom:.55rem; }
+.fnum { font-family:var(--font-mono); font-size:.8rem; color:var(--ink-faint); }
+.chip { font-family:var(--font-mono); font-size:.66rem; letter-spacing:.1em;
+  text-transform:uppercase; padding:.24em .62em; border-radius:var(--radius);
+  background:var(--surface-sub); color:var(--ink-soft); white-space:nowrap; }
+.chip.alert { background:var(--above-soft); color:var(--above); }
+.chip.ok { background:var(--accent-soft); color:var(--accent); }
+.finding h3 { margin:0 0 .5rem; font-size:1.1rem; line-height:1.35; flex:1 1 100%; }
+.finding p { color:var(--ink-soft); }
+.finding p:last-child { margin-bottom:0; }
+.stat-inline { font-family:var(--font-mono); font-size:.93em; color:var(--ink);
+  white-space:nowrap; }
+
+.callout { margin:2.2rem 0 0; padding:clamp(1.3rem,3.2vw,1.9rem);
+  background:var(--above-soft); border-radius:var(--radius);
+  border:1px solid var(--rule);
+  border-color:color-mix(in srgb, var(--above) 22%, transparent); }
+.callout h3 { margin-top:0; color:var(--above); }
+.callout p { margin-bottom:0; }
+.callout p + p { margin-top:.9rem; }
+.callout.ok { background:var(--accent-soft);
+  border-color:color-mix(in srgb, var(--accent) 25%, transparent); }
+.callout.ok h3 { color:var(--accent); }
+
+figure { margin:2rem 0 0; }
+figure img { display:block; width:100%; height:auto; border:1px solid var(--rule);
+  border-radius:var(--radius); background:#fff; padding:10px; }
+figcaption { font-size:.82rem; color:var(--ink-faint); margin-top:.7rem;
+  max-width:72ch; line-height:1.5; }
+figcaption b { color:var(--ink-soft); font-weight:500; }
+
+.scroller { overflow-x:auto; margin-top:1.6rem; }
+table { border-collapse:collapse; width:100%; min-width:640px; font-size:.87rem;
+  font-variant-numeric:tabular-nums; }
+table.narrow { min-width:0; max-width:26rem; }
+caption { text-align:left; font-size:.82rem; color:var(--ink-faint);
+  padding-bottom:.8rem; line-height:1.5; }
+th,td { padding:.5rem .7rem; border-bottom:1px solid var(--rule); text-align:left; }
+thead th { font-family:var(--font-mono); font-size:.68rem; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--ink-faint); font-weight:400;
+  border-bottom:1px solid var(--rule-strong); white-space:nowrap; }
+tbody th { font-weight:400; color:var(--ink); white-space:nowrap; }
+td.num { font-family:var(--font-mono); text-align:right; white-space:nowrap; }
+td.ci { color:var(--ink-soft); font-size:.93em; }
+td.p { color:var(--ink-faint); font-size:.88em; }
+td.p.sig { color:var(--ink-soft); }
+td.strong { color:var(--ink); font-weight:500; }
+td.track-cell { width:42%; min-width:220px; padding-inline:1rem; }
+.track { position:relative; height:18px; }
+.track .axis { position:absolute; left:50.00%; top:-2px; bottom:-2px;
+  width:1px; background:var(--rule-strong); }
+.track .bar { position:absolute; top:50%; height:2px; transform:translateY(-50%);
+  background:var(--ink-faint); border-radius:2px; }
+.track .dot { position:absolute; top:50%; width:8px; height:8px; margin-left:-4px;
+  transform:translateY(-50%); border-radius:50%; background:var(--ink-faint); }
+.track .bar.above,.track .dot.above { background:var(--above); }
+.track .bar.below,.track .dot.below { background:var(--below); }
+.scale { display:flex; justify-content:space-between; font-family:var(--font-mono);
+  font-size:.68rem; color:var(--ink-faint); margin-top:.5rem; min-width:640px; }
+
+.barlist { list-style:none; padding:0; margin:1.4rem 0 0; display:grid; gap:.5rem; }
+.barlist li { display:grid; grid-template-columns:8.5rem 1fr 3rem; align-items:center;
+  gap:.85rem; }
+.barlist .sl { font-size:.84rem; color:var(--ink-soft); }
+.barlist .sbar { background:var(--surface-sub); height:20px;
+  border-radius:var(--radius); overflow:hidden; }
+.barlist .sbar > span { display:block; height:100%; background:var(--accent); }
+.barlist .sbar.alt > span { background:var(--above); }
+.barlist .sv { font-family:var(--font-mono); font-size:.8rem; text-align:right;
+  color:var(--ink); font-variant-numeric:tabular-nums; }
+
+.duo { display:grid; gap:clamp(1.6rem,4vw,2.75rem); grid-template-columns:1fr;
+  margin-top:1.6rem; }
+@media (min-width:820px) { .duo { grid-template-columns:1fr 1fr; } }
+.panel h3 { margin-top:0; }
+.panel p { font-size:.93rem; color:var(--ink-soft); }
+.bignum { font-family:var(--font-mono); font-size:1.7rem; font-weight:500;
+  color:var(--ink); letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
+.bignum.accent { color:var(--accent); }
+
+ul.plain { padding-left:1.15rem; margin:1.1rem 0 0; }
+ul.plain li { margin-bottom:.75rem; color:var(--ink-soft); }
+ul.plain li b { color:var(--ink); font-weight:600; }
+
+footer { border-top:1px solid var(--rule); background:var(--surface);
+  padding:2.5rem 0; margin-top:clamp(3rem,7vw,5rem); }
+footer p { font-size:.85rem; color:var(--ink-faint); max-width:64ch; }
+pre.repro { font-family:var(--font-mono); font-size:.78rem; line-height:1.7;
+  background:var(--surface-sub); padding:1rem 1.15rem; border-radius:var(--radius);
+  overflow-x:auto; margin:1.1rem 0; color:var(--ink-soft); }
+:where(a,button):focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+@media (prefers-reduced-motion:reduce) { * { animation:none!important; transition:none!important; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <p class="eyebrow">Medicare HRRP &middot; FY2026 &middot; Logistic regression</p>
+    <h1>The Readmission Threshold</h1>
+    <p class="standfirst">Medicare already divides out patient case mix before judging a hospital on readmissions. So what is left over &mdash; and is any of it really about the hospital? <em>One of the strongest effects in the data turns out to be an artifact of CMS&rsquo;s own risk model.</em></p>
+    <!-- INTEGRATION: fill href when the repo is published. Leave empty rather than guessing. -->
+    <a class="repolink" href="" data-placeholder="github-repo-url" rel="noopener">View source and notebook on GitHub</a>
+    <div class="meta">
+      <span><b>Data</b> CMS Provider Data Catalog, FY2026</span>
+      <span><b>Window</b> Jul 2021 &ndash; Jun 2024</span>
+      <span><b>Sample</b> 11,681 records &middot; 2,818 hospitals</span>
+      <span><b>Method</b> Logistic regression, cluster-robust SE</span>
+    </div>
+  </div>
+</header>
+
+<div class="stats" id="summary">
+  <div class="stat"><span class="v">2,818</span><span class="k">Hospitals, each judged on up to six conditions</span></div>
+  <div class="stat"><span class="v">48.1%</span><span class="k">Exceeded their CMS-predicted readmission rate</span></div>
+  <div class="stat"><span class="v">62.9%</span><span class="k">Accuracy, grouped CV &mdash; against a 51.9% majority baseline</span></div>
+  <div class="stat"><span class="v">0.679</span><span class="k">Grouped cross-validated AUC &middot; pseudo-R&sup2; 0.078</span></div>
+</div>
+
+<main>
+<div class="wrap">
+
+<section id="question">
+  <div class="col">
+    <h2>The question</h2>
+    <p class="lede">CMS publishes an <strong>Excess Readmission Ratio</strong> for every eligible hospital and condition. It is already risk-adjusted: age, comorbidities and clinical severity are conditioned out. A ratio above 1.0 means a hospital readmitted more patients than CMS predicted <em>for patients like theirs</em>.</p>
+    <p>So &ldquo;which patients get readmitted&rdquo; is the wrong question here &mdash; CMS has already answered it. What remains open is whether the leftover variation says anything about the institution:</p>
+    <blockquote class="q">After patient case mix is accounted for, do ownership, size, rating and geography still predict excess readmissions?</blockquote>
+    <p>If the answer is no, the program measures care quality, as designed. If yes, it partly measures what kind of hospital you are &mdash; the core of the long-running safety-net critique of the readmissions penalty.</p>
+  </div>
+  <figure>
+    <img src="assets/01-outcome.png" alt="Left: histogram of excess readmission ratios clustered tightly around 1.0. Right: horizontal bars showing the share of hospitals above 1.0 for each of six conditions, from 46.8% for pneumonia to 49.9% for CABG.">
+    <figcaption><b>There is not much room between hospitals.</b> Ratios sit in a tight band around 1.0 (median 0.997, IQR 0.958&ndash;1.042). Any model here will have modest discrimination by construction &mdash; an AUC in the high 0.9s would indicate a leak, not a triumph.</figcaption>
+  </figure>
+</section>
+
+<section id="method">
+  <div class="col">
+    <h2>Why one model</h2>
+    <p>The question is inferential, so the coefficients <em>are</em> the result. A single well-specified logistic regression with honest standard errors says more here than a leaderboard of classifiers, and the choices that actually change the answer are not architectural:</p>
+  </div>
+  <div class="duo">
+    <div class="panel">
+      <h3>Clustered standard errors</h3>
+      <p>A hospital contributes up to six rows &mdash; one per condition &mdash; so the rows are not independent. Errors are clustered on facility, making the uncertainty reflect 2,818 real hospitals rather than 11,681 pseudo-independent records.</p>
+    </div>
+    <div class="panel">
+      <h3>Grouped cross-validation</h3>
+      <p>Folds split by hospital, never by row, so a hospital&rsquo;s own average cannot leak across the split. Measured rather than assumed: it changed almost nothing here, and the write-up says so.</p>
+    </div>
+    <div class="panel">
+      <h3>Informative missingness</h3>
+      <p>Suppressed discharge counts mean <em>low volume</em>, not <em>unknown</em>. Dropping those rows would have silently deleted the small hospitals &mdash; precisely the ones the safety-net critique is about.</p>
+    </div>
+    <div class="panel">
+      <h3>Binary at a real threshold</h3>
+      <p>The outcome is ratio &gt; 1.0 because that is how the penalty actually works. Magnitude is lost, so a continuous-outcome refit runs alongside as a check; it agrees on direction throughout.</p>
+    </div>
+  </div>
+</section>
+
+<section id="results">
+  <div class="col">
+    <h2>What the model says</h2>
+    <p>Reference cell is heart failure, non-profit ownership, the South, at mean volume and mean star rating. Bars are cluster-robust 95% confidence intervals.</p>
+  </div>
+  <div class="scroller">
+    <table>
+      <caption>Adjusted odds of exceeding the predicted readmission rate. Coloured intervals clear p &lt; 0.05; grey ones cross 1.0.</caption>
+      <thead><tr><th scope="col">Predictor</th><th scope="col" class="num">OR</th><th scope="col" class="num">95% CI</th><th scope="col">0.25&ensp;&middot;&ensp;1.0&ensp;&middot;&ensp;4.0</th><th scope="col" class="num">p</th></tr></thead>
+      <tbody>
+<tr>
+  <th scope="row">Condition: Hip/knee replacement</th>
+  <td class="num">1.94</td>
+  <td class="num ci">1.66&ndash;2.26</td>
+  <td class="track-cell">
+    <div class="track" role="img" aria-label="Odds ratio 1.94, 95% CI 1.66 to 2.26">
+      <span class="axis"></span>
+      <span class="bar above" style="left:68.38%;width:11.03%"></span>
+      <span class="dot above" style="left:73.89%"></span>
+    </div>
+  </td>
+  <td class="num p sig">&lt;10<sup>&minus;15</sup></td>
+</tr>
+<tr>
+  <th scope="row">Condition: CABG surgery</th>
+  <td class="num">1.57</td>
+  <td class="num ci">1.32&ndash;1.86</td>
+  <td class="track-cell">
+    <div class="track" role="img" aria-label="Odds ratio 1.57, 95% CI 1.32 to 1.86">
+      <span class="axis"></span>
+      <span class="bar above" style="left:59.96%;width:12.41%"></span>
+      <span class="dot above" style="left:66.17%"></span>
+    </div>
+  </td>
+  <td class="num p sig">3&times;10<sup>&minus;7</sup></td>
+</tr>
+<tr>
+  <th scope="row">Region: Northeast</th>
+  <td class="num">1.22</td>
+  <td class="num ci">1.06&ndash;1.39</td>
+  <td class="track-cell">
+    <div class="track" role="img" aria-label="Odds ratio 1.22, 95% CI 1.06 to 1.39">
+      <span class="axis"></span>
+      <span class="bar above" style="left:52.11%;width:9.83%"></span>
+      <span class="dot above" style="left:57.02%"></span>
+    </div>
+  </td>
+  <td class="num p sig">0.005</td>
+</tr>
+<tr>
+  <th scope="row">Ownership: For-profit</th>
+  <td class="num">1.15</td>
+  <td class="num ci">1.02&ndash;1.29</td>
+  <td class="track-cell">
+    <div class="track" role="img" aria-label="Odds ratio 1.15, 95% CI 1.02 to 1.29">
+      <span class="axis"></span>
+      <span class="bar above" style="left:50.67%;width:8.44%"></span>
+      <span class="dot above" style="left:54.89%"></span>
+    </div>
+  </td>
+  <td class="num p sig">0.023</td>
+</tr>
+<tr>
+  <th scope="row">Condition: Heart attack</th>
+  <td class="num">1.08</td>
+  <td class="num ci">0.95&ndash;1.23</td>
+  <td class="track-cell">
+    <div class="track" role="img" aria-label="Odds ratio 1.08, 95% CI 0.95 to 1.23">
+      <span class="axis"></span>
+      <span class="bar ns" style="left:48.24%;width:9.11%"></span>
+      <span class="dot ns" style="left:52.80%"></span>
+    </div>
+  </td>
+  <td class="num p">0.229</td>
+</tr>
+<tr>
+  <th scope="row">Ownership: Government</th>
+  <td class="num">1.07</td>
+  <td class="num ci">0.93&ndash;1.22</td>
+  <td class="track-cell">
+    <div class="track" role="img" aria-label="Odds ratio 1.07, 95% CI 0.93 to 1.22">
+      <span class="axis"></span>
+      <span class="bar ns" style="left:47.47%;width:9.71%"></span>
+      <span class="dot ns" style="left:52.32%"></span>
+    </div>
+  </td>
+  <td class="num p">0.349</td>
+</tr>
+<tr>
+  <th scope="row">Condition: Pneumonia</th>
+  <td class="num">0.94</td>
+  <td class="num ci">0.85&ndash;1.04</td>
+  <td class="track-cell">
+    <div class="track" role="img" aria-label="Odds ratio 0.94, 95% CI 0.85 to 1.04">
+      <span class="axis"></span>
+      <span class="bar ns" style="left:43.94%;width:7.55%"></span>
+      <span class="dot ns" style="left:47.72%"></span>
+    </div>
+  </td>
+  <td class="num p">0.236</td>
+</tr>
+<tr>
+  <th scope="row">Condition: COPD</th>
+  <td class="num">0.92</td>
+  <td class="num ci">0.81&ndash;1.04</td>
+  <td class="track-cell">
+    <div class="track" role="img" aria-label="Odds ratio 0.92, 95% CI 0.81 to 1.04">
+      <span class="axis"></span>
+      <span class="bar ns" style="left:42.39%;width:8.89%"></span>
+      <span class="dot ns" style="left:46.84%"></span>
+    </div>
+  </td>
+  <td class="num p">0.163</td>
+</tr>
+<tr>
+  <th scope="row">Region: Midwest</th>
+  <td class="num">0.89</td>
+  <td class="num ci">0.79&ndash;0.99</td>
+  <td class="track-cell">
+    <div class="track" role="img" aria-label="Odds ratio 0.89, 95% CI 0.79 to 0.99">
+      <span class="axis"></span>
+      <span class="bar below" style="left:41.45%;width:8.36%"></span>
+      <span class="dot below" style="left:45.63%"></span>
+    </div>
+  </td>
+  <td class="num p sig">0.041</td>
+</tr>
+<tr>
+  <th scope="row">Star rating unavailable</th>
+  <td class="num">0.85</td>
+  <td class="num ci">0.63&ndash;1.13</td>
+  <td class="track-cell">
+    <div class="track" role="img" aria-label="Odds ratio 0.85, 95% CI 0.63 to 1.13">
+      <span class="axis"></span>
+      <span class="bar ns" style="left:33.41%;width:21.08%"></span>
+      <span class="dot ns" style="left:43.95%"></span>
+    </div>
+  </td>
+  <td class="num p">0.260</td>
+</tr>
+<tr>
+  <th scope="row">Has emergency dept</th>
+  <td class="num">0.84</td>
+  <td class="num ci">0.69&ndash;1.03</td>
+  <td class="track-cell">
+    <div class="track" role="img" aria-label="Odds ratio 0.84, 95% CI 0.69 to 1.03">
+      <span class="axis"></span>
+      <span class="bar ns" style="left:36.40%;width:14.62%"></span>
+      <span class="dot ns" style="left:43.71%"></span>
+    </div>
+  </td>
+  <td class="num p">0.092</td>
+</tr>
+<tr>
+  <th scope="row">Region: West</th>
+  <td class="num">0.82</td>
+  <td class="num ci">0.72&ndash;0.92</td>
+  <td class="track-cell">
+    <div class="track" role="img" aria-label="Odds ratio 0.82, 95% CI 0.72 to 0.92">
+      <span class="axis"></span>
+      <span class="bar below" style="left:38.31%;width:8.67%"></span>
+      <span class="dot below" style="left:42.65%"></span>
+    </div>
+  </td>
+  <td class="num p sig">9&times;10<sup>&minus;4</sup></td>
+</tr>
+<tr>
+  <th scope="row">Discharge volume (+1 SD)</th>
+  <td class="num">0.78</td>
+  <td class="num ci">0.75&ndash;0.82</td>
+  <td class="track-cell">
+    <div class="track" role="img" aria-label="Odds ratio 0.78, 95% CI 0.75 to 0.82">
+      <span class="axis"></span>
+      <span class="bar below" style="left:39.39%;width:3.35%"></span>
+      <span class="dot below" style="left:41.06%"></span>
+    </div>
+  </td>
+  <td class="num p sig">&lt;10<sup>&minus;15</sup></td>
+</tr>
+<tr>
+  <th scope="row">Star rating (+1 SD)</th>
+  <td class="num">0.64</td>
+  <td class="num ci">0.61&ndash;0.67</td>
+  <td class="track-cell">
+    <div class="track" role="img" aria-label="Odds ratio 0.64, 95% CI 0.61 to 0.67">
+      <span class="axis"></span>
+      <span class="bar below" style="left:32.09%;width:3.40%"></span>
+      <span class="dot below" style="left:33.79%"></span>
+    </div>
+  </td>
+  <td class="num p sig">&lt;10<sup>&minus;15</sup></td>
+</tr>
+<tr>
+  <th scope="row">Volume suppressed (small)</th>
+  <td class="num">0.36</td>
+  <td class="num ci">0.33&ndash;0.40</td>
+  <td class="track-cell">
+    <div class="track" role="img" aria-label="Odds ratio 0.36, 95% CI 0.33 to 0.40">
+      <span class="axis"></span>
+      <span class="bar below" style="left:9.97%;width:7.19%"></span>
+      <span class="dot below" style="left:13.56%"></span>
+    </div>
+  </td>
+  <td class="num p sig">&lt;10<sup>&minus;15</sup></td>
+</tr>
+      </tbody>
+    </table>
+    <div class="scale"><span>0.25</span><span>0.5</span><span>1.0</span><span>2.0</span><span>4.0</span></div>
+  </div>
+</section>
+
+<section id="findings">
+  <div class="col"><h2>Findings</h2></div>
+  <div class="findings">
+    <div class="finding">
+      <div class="fhead"><span class="fnum">01</span><span class="chip">Weak signal</span></div>
+      <h3>Structure predicts excess readmission, but explains little of it</h3>
+      <p>Grouped-CV AUC <span class="stat-inline">0.679</span>, McFadden pseudo-R&sup2; <span class="stat-inline">0.078</span>, and the best available flag is only <span class="stat-inline">1.52&times;</span> better than picking at random. The effects are real and precisely estimated across 2,818 clustered hospitals, but the great majority of variation in who exceeds prediction is not explained by ownership, size, rating or geography. On the program&rsquo;s own terms that is mostly reassuring.</p>
+    </div>
+    <div class="finding">
+      <div class="fhead"><span class="fnum">02</span><span class="chip alert">Measurement artifact</span></div>
+      <h3>The apparent small-hospital advantage belongs to CMS&rsquo;s estimator, not to hospitals</h3>
+      <p>Hospitals whose discharge counts are suppressed exceed prediction least often of any group &mdash; <span class="stat-inline">36%</span> against a 48.1% base, adjusted OR <span class="stat-inline">0.36 [0.33, 0.40]</span>. But their ratio distribution is compressed to half or two-thirds the spread of larger hospitals <em>in every one of the six conditions</em>. CMS fits a hierarchical model that shrinks low-volume hospitals toward a national average sitting just below 1.0, which mechanically parks them on the favourable side of the threshold. Read as a quality result, the coefficient is simply wrong.</p>
+    </div>
+    <div class="finding">
+      <div class="fhead"><span class="fnum">03</span><span class="chip ok">Gradient confirmed</span></div>
+      <h3>Among hospitals large enough to be measured on their own data, smaller is worse</h3>
+      <p>Set the shrinkage group aside and the gradient is clean and monotone: the lowest reported-volume decile exceeds prediction <span class="stat-inline">82%</span> of the time against roughly <span class="stat-inline">46%</span> in the highest, with mean ratio falling steadily from 1.038 to 0.992. Adjusted, each additional standard deviation of log volume carries OR <span class="stat-inline">0.78 [0.75, 0.82]</span>. This is the direction the safety-net critique predicts, and it survives adjustment for condition, ownership, rating and region.</p>
+    </div>
+    <div class="finding">
+      <div class="fhead"><span class="fnum">04</span><span class="chip alert">Largest effect</span></div>
+      <h3>The condition you are judged on matters more than who you are</h3>
+      <p>The two biggest coefficients in the model are condition dummies, not hospital attributes: hip/knee replacement OR <span class="stat-inline">1.94 [1.66, 2.26]</span> and CABG OR <span class="stat-inline">1.57 [1.32, 1.86]</span>, both against heart failure. The same institution can clear the bar on one measure and miss it on another. Per-condition refits show the volume effect swinging from OR 0.17 for hip/knee to 0.95 for pneumonia &mdash; these six measures are not calibrated to a common scale.</p>
+    </div>
+    <div class="finding">
+      <div class="fhead"><span class="fnum">05</span><span class="chip">Small effect</span></div>
+      <h3>For-profit ownership shows a small but consistent association</h3>
+      <p>OR <span class="stat-inline">1.15 [1.02, 1.29]</span>, p&nbsp;=&nbsp;0.023 &mdash; just clearing significance, agreeing in sign with the continuous-outcome check, and positive in five of six per-condition refits. Present and worth reporting; far too small to carry a policy argument on its own.</p>
+    </div>
+    <div class="finding">
+      <div class="fhead"><span class="fnum">06</span><span class="chip ok">Coherence check</span></div>
+      <h3>Star rating moves with readmissions, as it should</h3>
+      <p>OR <span class="stat-inline">0.64</span> per standard deviation, the most precisely estimated effect in the model, running monotonically from 73% excess among one-star hospitals to 31% among five-star. This is a coherence check on CMS&rsquo;s measures rather than independent evidence &mdash; readmission measures feed into the star rating, so the two cannot be treated as separate.</p>
+      <ul class="barlist">
+<li><span class="sl">1&#9733;</span><span class="sbar alt"><span style="width:72.5%"></span></span><span class="sv">73%</span></li>
+<li><span class="sl">2&#9733;</span><span class="sbar alt"><span style="width:61.1%"></span></span><span class="sv">61%</span></li>
+<li><span class="sl">3&#9733;</span><span class="sbar alt"><span style="width:49.9%"></span></span><span class="sv">50%</span></li>
+<li><span class="sl">4&#9733;</span><span class="sbar alt"><span style="width:38.8%"></span></span><span class="sv">39%</span></li>
+<li><span class="sl">5&#9733;</span><span class="sbar alt"><span style="width:30.7%"></span></span><span class="sv">31%</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="shrinkage">
+  <div class="col">
+    <h2>The shrinkage artifact</h2>
+    <p>The suppressed-volume group broke an otherwise clean gradient, so it needed an explanation before going anywhere near a model.</p>
+    <p>CMS does not publish a raw readmission rate. It fits a hierarchical model that deliberately <strong>shrinks</strong> small hospitals&rsquo; estimates toward the national average &mdash; with few cases, a hospital&rsquo;s own data is weak evidence, so the model leans on the population. Shrinkage leaves a testable fingerprint: it should compress the <em>variance</em> of the ratio, not merely shift its mean.</p>
+    <p>It does, in every condition. Ratio of suppressed-group standard deviation to reported-group standard deviation &mdash; below 1.0 means compressed:</p>
+    <ul class="barlist">
+<li><span class="sl">Heart failure</span><span class="sbar"><span style="width:48.0%"></span></span><span class="sv">0.48</span></li>
+<li><span class="sl">Pneumonia</span><span class="sbar"><span style="width:50.3%"></span></span><span class="sv">0.50</span></li>
+<li><span class="sl">COPD</span><span class="sbar"><span style="width:59.3%"></span></span><span class="sv">0.59</span></li>
+<li><span class="sl">Heart attack</span><span class="sbar"><span style="width:60.4%"></span></span><span class="sv">0.60</span></li>
+<li><span class="sl">Hip/knee</span><span class="sbar"><span style="width:61.2%"></span></span><span class="sv">0.61</span></li>
+<li><span class="sl">CABG</span><span class="sbar"><span style="width:68.2%"></span></span><span class="sv">0.68</span></li>
+    </ul>
+  </div>
+  <figure>
+    <img src="assets/05-shrinkage.png" alt="Left: overlaid density histograms for heart failure showing the suppressed-volume group far narrower and centred just below 1.0 against the wider reported group. Right: bar chart of standard-deviation ratios for all six conditions, every bar below the 1.0 line.">
+    <figcaption><b>Small hospitals are squeezed toward the centre.</b> Within heart failure the suppressed group&rsquo;s standard deviation is 0.032 against 0.068 for reported-volume hospitals. The pattern holds across all six conditions.</figcaption>
+  </figure>
+  <div class="col">
+    <div class="callout">
+      <h3>The pooled comparison points the other way &mdash; and that is a trap</h3>
+      <p>Ignore condition, and the suppressed group&rsquo;s standard deviation (<span class="stat-inline">0.087</span>) is <em>higher</em> than the reported group&rsquo;s (<span class="stat-inline">0.078</span>), appearing to refute shrinkage outright.</p>
+      <p>It doesn&rsquo;t. Hip/knee replacement has the widest ratio spread of any condition &mdash; roughly triple heart failure&rsquo;s &mdash; and 83% of its rows are suppressed, so it dominates the pooled suppressed group and drags its variance up. With suppression rates ranging from 12% to 83% across conditions, the pooled figure compares different mixtures, not different hospitals. Every conclusion here rests on the within-condition comparison.</p>
+    </div>
+  </div>
+</section>
+
+<section id="patterns">
+  <div class="col"><h2>How the raw patterns look</h2></div>
+  <figure>
+    <img src="assets/02-predictors.png" alt="Three panels: star rating against probability of exceeding prediction falling from 73% to 31%; ownership bars with for-profit highest at 54.2%; discharge volume on a log axis falling from 82% at the smallest reported volumes to about 46% at the largest, with suppressed-volume rows marked at 36%.">
+    <figcaption><b>Before any adjustment.</b> Star rating falls monotonically. Ownership shows a modest gap. Volume declines steeply among reporting hospitals &mdash; then the suppressed rows sit below everything, the discontinuity that led to the shrinkage diagnostic.</figcaption>
+  </figure>
+</section>
+
+<section id="performance">
+  <div class="col">
+    <h2>Does it predict well enough to act on?</h2>
+    <p>Calibration is good &mdash; when the model says 60%, close to 60% of those records exceed prediction. That is the property that matters if a number like this ever reaches a human reviewer. Discrimination is another matter: the two outcome classes overlap heavily.</p>
+    <p><strong>Accuracy is 62.9%</strong> at the default 0.5 cut, against <strong>51.9%</strong> for always predicting the majority class &mdash; roughly eleven points of genuine lift. Balanced accuracy is 62.7%, essentially identical, which rules out any class-imbalance sleight of hand. It is also the least informative number here: accuracy collapses a calibrated probability into one arbitrary threshold and hides the trade-off the sweep below makes explicit.</p>
+  </div>
+  <figure>
+    <img src="assets/04-performance.png" alt="Three panels: ROC curve with AUC 0.679; calibration curve tracking the diagonal closely; overlaid histograms of predicted probability for the two outcome classes showing heavy overlap.">
+    <figcaption><b>An honest model of a weak signal.</b> AUC 0.679 against a 48.1% base rate, Brier 0.225. Well calibrated, weakly discriminating.</figcaption>
+  </figure>
+  <div class="scroller">
+    <table>
+      <caption>What a structural-risk flag would actually buy a regulator at each decision threshold.</caption>
+      <thead><tr><th scope="col" class="num">Threshold</th><th scope="col" class="num">Flagged</th><th scope="col" class="num">Accuracy</th><th scope="col" class="num">Precision</th><th scope="col" class="num">Recall</th><th scope="col" class="num">Lift</th></tr></thead>
+      <tbody>
+<tr><td class="num">0.45</td><td class="num">6,597</td><td class="num">62.1%</td><td class="num">59.0%</td><td class="num">69.3%</td><td class="num strong">1.23&times;</td></tr>
+<tr><td class="num">0.50</td><td class="num">5,288</td><td class="num">62.9%</td><td class="num">62.1%</td><td class="num">58.5%</td><td class="num strong">1.29&times;</td></tr>
+<tr><td class="num">0.55</td><td class="num">4,088</td><td class="num">63.0%</td><td class="num">65.8%</td><td class="num">47.9%</td><td class="num strong">1.37&times;</td></tr>
+<tr><td class="num">0.60</td><td class="num">2,960</td><td class="num">61.8%</td><td class="num">69.5%</td><td class="num">36.6%</td><td class="num strong">1.44&times;</td></tr>
+<tr><td class="num">0.65</td><td class="num">1,954</td><td class="num">59.7%</td><td class="num">73.2%</td><td class="num">25.4%</td><td class="num strong">1.52&times;</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="ceiling">
+  <div class="col">
+    <h2>Why isn&rsquo;t accuracy higher?</h2>
+    <p class="lede">62.9% invites an obvious objection: shouldn&rsquo;t a good model clear 90%? On this problem, no. A high score here is a symptom rather than an achievement, and three checks establish where the real ceiling sits.</p>
+    <h3>The fastest route to a &ldquo;great&rdquo; model</h3>
+    <p>The source file contains <code>Predicted Readmission Rate</code> and <code>Expected Readmission Rate</code>. The excess ratio <em>is</em> their quotient &mdash; maximum absolute discrepancy across all 11,681 records is 0.000065. Feed those two columns to any classifier and it scores <strong>99.99%</strong>. That is the target handed back in two pieces: a perfect number carrying no information. On this dataset a high accuracy is usually evidence that someone reconstructed the outcome.</p>
+    <h3>The outcome is a residual by construction</h3>
+    <p>CMS has already conditioned out age, comorbidities and clinical severity &mdash; everything systematically predictable about which patients bounce back. What survives that subtraction is <em>designed</em> to be noise. A structural model explaining 95% of it would not be a good model; it would be evidence that CMS&rsquo;s risk adjustment had failed.</p>
+    <h3>A quarter of the records are coin flips</h3>
+    <div class="scroller">
+      <table class="narrow">
+        <caption>Share of records sitting within a given distance of the 1.0 threshold.</caption>
+        <thead><tr><th scope="col" class="num">Distance from 1.0</th><th scope="col" class="num">Share of records</th></tr></thead>
+        <tbody>
+<tr><td class="num">&plusmn;0.005</td><td class="num strong">6.6%</td></tr>
+<tr><td class="num">&plusmn;0.01</td><td class="num strong">13.0%</td></tr>
+<tr><td class="num">&plusmn;0.02</td><td class="num strong">25.3%</td></tr>
+<tr><td class="num">&plusmn;0.05</td><td class="num strong">57.2%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:1.1rem">The measure&rsquo;s own standard deviation is 0.082. A hospital at 0.999 and one at 1.001 receive opposite labels while being indistinguishable. No estimator can be right about those, and there are thousands of them.</p>
+    <h3>The empirical ceiling</h3>
+    <p>The decisive test. For each record, predict it using <em>the same hospital&rsquo;s actual measured performance on its other five conditions</em> &mdash; not a proxy like ownership or bed count, but the institution&rsquo;s own track record, with the record being predicted excluded from its own predictor.</p>
+  </div>
+  <div class="duo">
+    <div class="panel">
+      <h3>Hospital&rsquo;s own track record</h3>
+      <p><span class="bignum">60.0%</span><br>accuracy &middot; AUC 0.637</p>
+    </div>
+    <div class="panel">
+      <h3>Structural model</h3>
+      <p><span class="bignum accent">62.9%</span><br>accuracy &middot; AUC 0.679</p>
+    </div>
+  </div>
+  <div class="col">
+    <div class="callout ok">
+      <h3>The ceiling belongs to the problem, not the estimator</h3>
+      <p>Knowing exactly how a hospital performed on heart failure, pneumonia, COPD, heart attack and CABG predicts its hip/knee result <em>less</em> accurately than ownership, size, rating and region do. That is the most informative non-leaking feature obtainable, and it underperforms. Swapping logistic regression for a gradient-boosted ensemble cannot move a limit set by the data.</p>
+      <p>Which is why the deliverable here is a calibrated probability and a set of interpretable odds ratios, not a headline accuracy figure.</p>
+    </div>
+  </div>
+</section>
+
+<section id="limits">
+  <div class="col">
+    <h2>What this cannot tell you</h2>
+    <ul class="plain">
+      <li><b>Hospital-level, not patient-level.</b> Nothing here supports a claim about an individual patient&rsquo;s readmission risk. The unit is an institution&ndash;condition pair.</li>
+      <li><b>Cross-sectional and non-causal.</b> One window, overlapping COVID recovery. An odds ratio on ownership describes who exceeds prediction, not what would happen if ownership changed.</li>
+      <li><b>No social risk adjustment.</b> The public file carries no dual-eligible share, disproportionate-share status or area deprivation index. Finding 03 establishes that a volume gradient exists, not that payer mix or poverty is what drives it.</li>
+      <li><b>The shrinkage evidence is inferential.</b> The variance-compression pattern is strongly consistent with hierarchical shrinkage, but CMS&rsquo;s model is not reproducible from this public file, so the mechanism is evidenced rather than directly verified.</li>
+      <li><b>Star rating is endogenous</b> to the outcome being modelled, and cannot be read as an independent driver.</li>
+      <li><b>The binary outcome discards magnitude.</b> A hospital at 1.001 and one at 1.63 are identical to the logit; the continuous refit agrees on direction.</li>
+    </ul>
+  </div>
+</section>
+
+</div>
+</main>
+
+<footer>
+  <div class="wrap col">
+    <h3 style="margin-top:0">Reproducing this</h3>
+    <p>The notebook resolves both CMS files through the metastore API at runtime rather than pinned URLs, which rot on every quarterly refresh. Every number on this page is emitted to <code>results/findings.json</code> by the final cell &mdash; the write-up is generated from the fit, not typed by hand.</p>
+    <pre class="repro">pip install pandas numpy scikit-learn matplotlib statsmodels jupyter
+jupyter nbconvert --to notebook --execute --inplace \
+  hospital_readmission_analysis.ipynb</pre>
+    <p>Data: Hospital Readmissions Reduction Program (<code>9n3s-kdb3</code>) and Hospital General Information (<code>xubh-q36u</code>), CMS Provider Data Catalog. Analysis in Python with statsmodels and scikit-learn.</p>
+    <!-- INTEGRATION: same placeholder as the header link. -->
+    <a class="repolink" href="" data-placeholder="github-repo-url" rel="noopener">View source and notebook on GitHub</a>
+  </div>
+</footer>
+
+</body>
+</html>
